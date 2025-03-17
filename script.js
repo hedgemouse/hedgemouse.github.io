@@ -25,11 +25,60 @@ setTimeout(() => {
     let isEating = false;
     let mouseX = 0;
     let mouseY = 0;
+    let isMobileDevice = false;
     let currentPosition = { x: 0, y: 0 };
     
+    // Check if the device is mobile
+    function checkMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+               window.matchMedia("(max-width: 768px)").matches;
+    }
+    
+    isMobileDevice = checkMobileDevice();
+    
+    // Hide mouse follower on mobile devices initially
+    if (isMobileDevice) {
+        mouseFollower.style.opacity = '0.7';
+        mouseFollower.style.transform = 'scale(0.8)';
+    }
+    
+    // Handle touch events for mobile
+    document.addEventListener('touchstart', function(e) {
+        if (e.target.closest('.nav-tabs')) return;
+        
+        // Get touch position
+        const touch = e.touches[0];
+        const touchX = touch.clientX;
+        const touchY = touch.clientY;
+        
+        // Create cheese element
+        const cheese = document.createElement('div');
+        cheese.className = 'cheese';
+        cheese.innerHTML = '🧀';
+        cheese.style.left = (touchX - 15) + 'px';
+        cheese.style.top = (touchY - 15) + 'px';
+        document.body.appendChild(cheese);
+        
+        // Add to queue
+        cheeseQueue.push({
+            x: touchX,
+            y: touchY,
+            element: cheese
+        });
+        
+        // If on mobile, immediately show the mouse follower
+        if (isMobileDevice) {
+            mouseFollower.style.opacity = '1';
+        }
+    });
+    
+    // Handle mouse events for desktop
     document.addEventListener('click', function(e) {
         // Don't create cheese if clicking on nav-tabs
         if (e.target.closest('.nav-tabs')) return;
+        
+        // Skip on touch devices (will be handled by touchstart)
+        if (isMobileDevice && e.pointerType === 'touch') return;
 
         // Create cheese element
         const cheese = document.createElement('div');
@@ -47,10 +96,19 @@ setTimeout(() => {
         });
     });
     
-    // Track actual mouse position separately
+    // Track mouse position on desktop
     document.addEventListener('mousemove', function(e) {
         mouseX = e.clientX;
         mouseY = e.clientY;
+    });
+    
+    // Track touch movement on mobile
+    document.addEventListener('touchmove', function(e) {
+        if (isMobileDevice) {
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+        }
     });
     
     // Update mouse follower position
@@ -93,8 +151,14 @@ setTimeout(() => {
             }, 500); // Match this with the CSS transition duration
         } else if (!isEating) {
             // Follow cursor if no cheese or not eating
-            currentPosition.x = mouseX + 30;
-            currentPosition.y = mouseY + 30;
+            if (isMobileDevice && cheeseQueue.length === 0) {
+                // On mobile, keep the mouse follower out of the way
+                currentPosition.x = window.innerWidth - 60;
+                currentPosition.y = window.innerHeight - 60;
+            } else {
+                currentPosition.x = mouseX + 30;
+                currentPosition.y = mouseY + 30;
+            }
             mouseFollower.style.left = currentPosition.x + 'px';
             mouseFollower.style.top = currentPosition.y + 'px';
         }
@@ -121,6 +185,11 @@ setTimeout(() => {
     
     // Start the animation loop
     updatePosition();
+    
+    // Handle orientation changes
+    window.addEventListener('resize', function() {
+        isMobileDevice = checkMobileDevice();
+    });
 }, 100); // Small delay to ensure everything is ready
 
 // Add click handler for tutorial element
@@ -128,6 +197,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const tutorial = document.querySelector('.cheeseTutorial');
     if (tutorial) {
         tutorial.addEventListener('click', function() {
+            this.style.display = 'none';
+        });
+        
+        // Also add touch event for mobile
+        tutorial.addEventListener('touchend', function(e) {
+            e.preventDefault();
             this.style.display = 'none';
         });
     }
